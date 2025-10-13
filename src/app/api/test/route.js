@@ -1,6 +1,10 @@
 import { prisma } from '@/lib/prisma'
 import { getSession } from '@/lib/auth'
 
+// Force dynamic rendering (disable static optimization)
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
+
 /**
  * GET /api/test
  * Public route - Returns test data (read-only, no auth required)

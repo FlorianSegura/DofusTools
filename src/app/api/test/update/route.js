@@ -1,6 +1,10 @@
 import { prisma } from '@/lib/prisma'
 import { withAuth } from '@/lib/auth'
 
+// Force dynamic rendering (disable static optimization)
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
+
 /**
  * POST /api/test/update
  * Protected route - Requires authentication to modify data

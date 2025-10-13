@@ -13,7 +13,8 @@
       "Bash(Test-NetConnection -ComputerName ep-bold-hill-ab3nwpjx.eu-west-2.aws.neon.tech -Port 5432)",
       "Bash(powershell:*)",
       "Bash(npm run dev)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(npm run build)"
     ],
     "deny": [],
     "ask": []
