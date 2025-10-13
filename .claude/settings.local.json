@@ -7,7 +7,13 @@
       "Bash(npm install)",
       "Bash(node -e \"console.log(require(''crypto'').randomBytes(32).toString(''base64''))\")",
       "Bash(npx prisma:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(where node)",
+      "Bash(ping:*)",
+      "Bash(Test-NetConnection -ComputerName ep-bold-hill-ab3nwpjx.eu-west-2.aws.neon.tech -Port 5432)",
+      "Bash(powershell:*)",
+      "Bash(npm run dev)",
+      "Bash(node:*)"
     ],
     "deny": [],
     "ask": []
