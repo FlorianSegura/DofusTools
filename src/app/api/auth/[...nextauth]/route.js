@@ -3,6 +3,10 @@ import GoogleProvider from "next-auth/providers/google"
 import { PrismaAdapter } from "@next-auth/prisma-adapter"
 import { prisma } from "@/lib/prisma"
 
+// Force dynamic rendering (disable static optimization)
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
+
 export const authOptions = {
   adapter: PrismaAdapter(prisma),
   providers: [
