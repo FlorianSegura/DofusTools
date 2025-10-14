@@ -21,9 +21,11 @@ This is a **Dofus Tools** full stack application using :
 
 ## Project Deployment
 
-The application is deploy on Vercel, and use a Neon as a database. The deployment is automatically done using a **GitHub** repo
+The application is deploy on Vercel, and use a [Supabase](https://supabase.com/docs/guides/getting-started/tutorials/with-nextjs). The deployment is automatically done using a **GitHub** repo
 
-## Application Structure
+## Application Description
+
+The app start with a **mandatory login page**, allowing the user to connect using Google OAuth 2.0
 
 The app follows a single-page application (SPA) pattern with:
 - **Sidebar navigation** (`/src/components/Sidebar.jsx`) - Fixed navigation with icons and active states

@@ -14,7 +14,11 @@
       "Bash(powershell:*)",
       "Bash(npm run dev)",
       "Bash(node:*)",
-      "Bash(npm run build)"
+      "Bash(npm run build)",
+      "Bash(if exist nul del nul)",
+      "Bash(dir:*)",
+      "Bash(tree:*)",
+      "Bash(pkill:*)"
     ],
     "deny": [],
     "ask": []

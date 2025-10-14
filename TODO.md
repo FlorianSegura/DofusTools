@@ -1,4 +1,2 @@
-1) Initialize GitHub repo
-2) Initialize the stack
-3) Create a database and define a user table with **Prisma**
-4) Add a login system to the site
+1) "Xp item" --> Lorsque je charge un item dans l'onglet, et que je change d'onglet puis revient à celui ci, l'item est encore là mais le nom est changé en "Item + ID" (exemple: Item 377) et ne conserve pas son vrai nom. 
+2) "Xp item" --> Ajouter un bouton en haut à gauche du titre qui permet de supprimer toutes les lignes du tableau (sans les supprimer de ma base)
