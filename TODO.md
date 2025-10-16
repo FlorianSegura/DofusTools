@@ -1,2 +1,6 @@
-1) "Xp item" --> Lorsque je charge un item dans l'onglet, et que je change d'onglet puis revient à celui ci, l'item est encore là mais le nom est changé en "Item + ID" (exemple: Item 377) et ne conserve pas son vrai nom. 
-2) "Xp item" --> Ajouter un bouton en haut à gauche du titre qui permet de supprimer toutes les lignes du tableau (sans les supprimer de ma base)
+1) **Erreur persistante** Xp items --> Je ne vois toujours plus mes quelques items que j'ai chargé, comme s'il n'y avait pas de sauvegarde dans le local storage.
+Je redéfinie ma spécification : 
+- dans l'onglet "Xp item", je cherche un item puis je le sélectionne. Il s'affiche dans mon tableau.
+- je peux modifier cet item à mon souhait
+- je change d'onglet, ou je me déconnecte, ou je change de PC, j'aimerais que lorsque je revienne sur cette onglet, je retrouve mes items sélectionnés. Il faudrait certainement avoir une table dans la base de données qui sauvegarde la sélection pour chaque utilisateur connecté. 
+Dans cette table, il faudrait stocker la liste des ID des items, et des utilisateurs. Lorque l'onglet doit s'afficher, on relit les items, on refait le lien avec dofusdude.

@@ -27,11 +27,88 @@ export default function Ressources() {
         router.push('/login')
       } else {
         setUser(session.user)
-        loadItems()
+        // Charger les items depuis la base de données
+        loadUserItems(session.user.id)
       }
     }
     checkAuth()
   }, [router, supabase.auth])
+
+  // Charger les items de l'utilisateur depuis la base
+  const loadUserItems = async (userId) => {
+    try {
+      // Récupérer les IDs des items de l'utilisateur
+      const { data: userItemsData, error: userItemsError } = await supabase
+        .from('user_items')
+        .select('item_id')
+        .eq('user_id', userId)
+
+      if (userItemsError) throw userItemsError
+
+      if (userItemsData && userItemsData.length > 0) {
+        const itemIds = userItemsData.map(ui => ui.item_id)
+
+        // Récupérer les détails des items depuis la table items
+        const { data: itemsData, error: itemsError } = await supabase
+          .from('items')
+          .select('*')
+          .in('id', itemIds)
+
+        if (itemsError) throw itemsError
+
+        // Charger les métadonnées depuis localStorage pour nom/image
+        const savedMetadata = JSON.parse(localStorage.getItem('itemsMetadata') || '{}')
+
+        // Enrichir avec les métadonnées
+        const enrichedItems = await Promise.all(
+          itemsData.map(async (item) => {
+            // Vérifier si métadonnées dans localStorage
+            if (savedMetadata[item.id]) {
+              return {
+                ...item,
+                ...savedMetadata[item.id]
+              }
+            }
+
+            // Sinon charger depuis l'API
+            try {
+              const response = await fetch(
+                `https://api.dofusdu.de/dofus3/v1/fr/items/search?query=${item.id}&limit=1`
+              )
+              if (response.ok) {
+                const searchResults = await response.json()
+                if (searchResults && searchResults.length > 0) {
+                  const apiItem = searchResults.find(r => r.ankama_id === item.id)
+                  if (apiItem) {
+                    // Sauvegarder dans localStorage pour la prochaine fois
+                    savedMetadata[item.id] = {
+                      name: apiItem.name,
+                      image_urls: apiItem.image_urls,
+                      type: apiItem.type
+                    }
+                    localStorage.setItem('itemsMetadata', JSON.stringify(savedMetadata))
+                    return {
+                      ...item,
+                      name: apiItem.name,
+                      image_urls: apiItem.image_urls,
+                      type: apiItem.type
+                    }
+                  }
+                }
+              }
+            } catch (err) {
+              console.error(`Erreur lors du chargement de l'item ${item.id}:`, err)
+            }
+            return item
+          })
+        )
+
+        setItems(enrichedItems)
+      }
+    } catch (error) {
+      console.error('Erreur lors du chargement des items utilisateur:', error)
+    }
+  }
 
   // Gérer le clic en dehors du dropdown
   useEffect(() => {
@@ -55,54 +132,6 @@ export default function Ressources() {
       setShowDropdown(false)
     }
   }, [searchName, searchItemsAutocomplete, clearSuggestions])
-
-  // Charger les items depuis la base
-  const loadItems = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('items')
-        .select('*')
-        .order('id', { ascending: true })
-
-      if (error) throw error
-
-      // Enrichir chaque item avec les données de l'API
-      if (data && data.length > 0) {
-        const enrichedItems = await Promise.all(
-          data.map(async (item) => {
-            try {
-              const response = await fetch(
-                `https://api.dofusdu.de/dofus3/v1/fr/items/search?query=${item.id}&limit=1`
-              )
-
-              if (response.ok) {
-                const searchResults = await response.json()
-                if (searchResults && searchResults.length > 0) {
-                  const apiItem = searchResults.find(r => r.ankama_id === item.id)
-                  if (apiItem) {
-                    return {
-                      ...item,
-                      name: apiItem.name,
-                      image_urls: apiItem.image_urls,
-                      type: apiItem.type
-                    }
-                  }
-                }
-              }
-            } catch (err) {
-              console.error(`Erreur lors du chargement de l'item ${item.id}:`, err)
-            }
-            return item
-          })
-        )
-        setItems(enrichedItems)
-      } else {
-        setItems([])
-      }
-    } catch (error) {
-      console.error('Erreur lors du chargement des items:', error)
-    }
-  }
 
   // Ajouter un item depuis le dropdown
   const handleSelectFromDropdown = async (item) => {
@@ -128,8 +157,22 @@ export default function Ressources() {
         throw selectError
       }
 
+      // Sauvegarder les métadonnées dans localStorage
+      const savedMetadata = JSON.parse(localStorage.getItem('itemsMetadata') || '{}')
+      savedMetadata[item.ankama_id] = {
+        name: item.name,
+        image_urls: item.image_urls,
+        type: item.type
+      }
+      localStorage.setItem('itemsMetadata', JSON.stringify(savedMetadata))
+
       if (existingItem) {
-        // L'item existe, l'ajouter à la liste locale avec les infos de l'API
+        // L'item existe, ajouter la relation user_items
+        await supabase
+          .from('user_items')
+          .insert([{ user_id: user.id, item_id: existingItem.id }])
+
+        // Ajouter à la liste locale avec les infos de l'API
         setItems(prev => [...prev, {
           ...existingItem,
           name: item.name,
@@ -155,6 +198,11 @@ export default function Ressources() {
 
         if (insertError) throw insertError
 
+        // Ajouter la relation user_items
+        await supabase
+          .from('user_items')
+          .insert([{ user_id: user.id, item_id: insertedItem.id }])
+
         // Ajouter à la liste locale avec les infos de l'API
         setItems(prev => [...prev, {
           ...insertedItem,
@@ -169,9 +217,41 @@ export default function Ressources() {
     }
   }
 
-  // Retirer un item de la vue (sans supprimer de la base)
-  const handleDeleteItem = (itemId) => {
-    setItems(prev => prev.filter(i => i.id !== itemId))
+  // Retirer un item de la vue et de user_items
+  const handleDeleteItem = async (itemId) => {
+    try {
+      // Supprimer la relation user_items
+      await supabase
+        .from('user_items')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('item_id', itemId)
+
+      // Retirer de la liste locale
+      setItems(prev => prev.filter(i => i.id !== itemId))
+    } catch (error) {
+      console.error('Erreur lors de la suppression:', error)
+    }
+  }
+
+  // Tout effacer
+  const handleClearAll = async () => {
+    if (items.length > 0) {
+      if (confirm('Voulez-vous vraiment retirer tous les items de la vue ?')) {
+        try {
+          // Supprimer toutes les relations user_items de cet utilisateur
+          await supabase
+            .from('user_items')
+            .delete()
+            .eq('user_id', user.id)
+
+          // Vider la liste locale
+          setItems([])
+        } catch (error) {
+          console.error('Erreur lors de la suppression:', error)
+        }
+      }
+    }
   }
 
   // Éditer une cellule
@@ -228,7 +308,21 @@ export default function Ressources() {
   return (
     <Layout>
       <div className="max-w-7xl mx-auto">
-        <h1 className="text-4xl font-bold text-gray-900 mb-8">Xp item</h1>
+        <div className="flex items-center justify-between mb-8">
+          <h1 className="text-4xl font-bold text-gray-900">Xp item</h1>
+          {items.length > 0 && (
+            <button
+              onClick={handleClearAll}
+              className="flex items-center gap-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors font-medium"
+              title="Retirer tous les items de la vue"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              Tout effacer
+            </button>
+          )}
+        </div>
 
         {/* Encart de recherche */}
         <div className="bg-white rounded-lg shadow-lg p-6 mb-6">

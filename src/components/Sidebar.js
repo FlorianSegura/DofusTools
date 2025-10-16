@@ -1,8 +1,10 @@
 import Link from 'next/link'
 import { useRouter } from 'next/router'
+import { useState } from 'react'
 
 export default function Sidebar({ user, onSignOut }) {
   const router = useRouter()
+  const [avatarError, setAvatarError] = useState(false)
 
   const menuItems = [
     {
@@ -71,24 +73,37 @@ export default function Sidebar({ user, onSignOut }) {
       {user && (
         <div className="border-t p-4">
           <div className="flex items-center gap-3 mb-3">
-            {user.user_metadata?.avatar_url && (
+            {/* Avatar ou initiales */}
+            {user.user_metadata?.avatar_url && !avatarError ? (
               <img
                 src={user.user_metadata.avatar_url}
-                alt={user.user_metadata?.full_name || 'User'}
+                alt={user.user_metadata?.full_name || user.email}
                 className="w-10 h-10 rounded-full"
+                onError={() => setAvatarError(true)}
               />
+            ) : (
+              <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-semibold text-sm">
+                {(() => {
+                  const name = user.user_metadata?.full_name || user.email
+                  const initials = name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+                  return initials || name[0].toUpperCase()
+                })()}
+              </div>
             )}
+
+            {/* Email */}
             <div className="flex-1 overflow-hidden">
-              <p className="text-sm font-medium text-gray-700 truncate">
-                {user.user_metadata?.full_name || user.email}
-              </p>
-              <p className="text-xs text-gray-500 truncate">{user.email}</p>
+              <p className="text-sm text-gray-700 truncate">{user.email}</p>
             </div>
           </div>
+
           <button
             onClick={onSignOut}
-            className="w-full bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-md transition-colors text-sm font-medium"
+            className="w-full bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-md transition-colors text-sm font-medium flex items-center justify-center gap-2"
           >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
             Déconnexion
           </button>
         </div>
