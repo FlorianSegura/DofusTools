@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/router'
 import { createClient } from '../utils/supabase/client'
 import Layout from '../components/Layout'
@@ -19,6 +19,11 @@ export default function Ressources() {
   const [items, setItems] = useState([])
   const [editingCell, setEditingCell] = useState(null)
   const [editValue, setEditValue] = useState('')
+
+  // État pour le tri
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' })
+  const [lastAddedItemId, setLastAddedItemId] = useState(null)
+  const [selectedItemId, setSelectedItemId] = useState(null)
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -179,6 +184,9 @@ export default function Ressources() {
           image_urls: item.image_urls,
           type: item.type
         }])
+
+        // Marquer comme dernier item ajouté
+        setLastAddedItemId(existingItem.id)
       } else {
         // L'item n'existe pas, le créer
         const newItem = {
@@ -210,6 +218,9 @@ export default function Ressources() {
           image_urls: item.image_urls,
           type: item.type
         }])
+
+        // Marquer comme dernier item ajouté
+        setLastAddedItemId(insertedItem.id)
       }
     } catch (error) {
       console.error('Erreur lors de l\'ajout de l\'item:', error)
@@ -302,6 +313,68 @@ export default function Ressources() {
     const prixParUnite = prix / quantity
     return (prixParUnite / xp).toFixed(2)
   }
+
+  // Fonction de tri
+  const handleSort = (key) => {
+    let direction = 'asc'
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc'
+    }
+    setSortConfig({ key, direction })
+
+    // Sauvegarder dans localStorage pour persistence
+    localStorage.setItem('itemsSortConfig', JSON.stringify({ key, direction }))
+  }
+
+  // Charger le tri depuis localStorage
+  useEffect(() => {
+    const savedSort = localStorage.getItem('itemsSortConfig')
+    if (savedSort) {
+      setSortConfig(JSON.parse(savedSort))
+    }
+  }, [])
+
+  // Appliquer le tri aux items
+  const sortedItems = React.useMemo(() => {
+    if (!sortConfig.key) return items
+
+    return [...items].sort((a, b) => {
+      let aValue, bValue
+
+      switch (sortConfig.key) {
+        case 'name':
+          aValue = (a.name || `Item ${a.id}`).toLowerCase()
+          bValue = (b.name || `Item ${b.id}`).toLowerCase()
+          break
+        case 'xp':
+          aValue = a.xp || 0
+          bValue = b.xp || 0
+          break
+        case 'ratio_1u':
+          aValue = parseFloat(calculateRatio(a.prix_1u, a.xp, 1)) || Infinity
+          bValue = parseFloat(calculateRatio(b.prix_1u, b.xp, 1)) || Infinity
+          break
+        case 'ratio_10u':
+          aValue = parseFloat(calculateRatio(a.prix_10u, a.xp, 10)) || Infinity
+          bValue = parseFloat(calculateRatio(b.prix_10u, b.xp, 10)) || Infinity
+          break
+        case 'ratio_100u':
+          aValue = parseFloat(calculateRatio(a.prix_100u, a.xp, 100)) || Infinity
+          bValue = parseFloat(calculateRatio(b.prix_100u, b.xp, 100)) || Infinity
+          break
+        case 'ratio_1000u':
+          aValue = parseFloat(calculateRatio(a.prix_1000u, a.xp, 1000)) || Infinity
+          bValue = parseFloat(calculateRatio(b.prix_1000u, b.xp, 1000)) || Infinity
+          break
+        default:
+          return 0
+      }
+
+      if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1
+      if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1
+      return 0
+    })
+  }, [items, sortConfig])
 
   if (!user) return null
 
@@ -398,25 +471,87 @@ export default function Ressources() {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-16"></th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nom</th>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Xp</th>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Prix 1u</th>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Prix 10u</th>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Prix 100u</th>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Prix 1000u</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <button onClick={() => handleSort('name')} className="flex items-center gap-1 hover:text-gray-700">
+                        Nom
+                        {sortConfig.key === 'name' && (
+                          <span>{sortConfig.direction === 'asc' ? '▲' : '▼'}</span>
+                        )}
+                      </button>
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <button onClick={() => handleSort('xp')} className="flex items-center gap-1 hover:text-gray-700 mx-auto">
+                        Xp
+                        {sortConfig.key === 'xp' && (
+                          <span>{sortConfig.direction === 'asc' ? '▲' : '▼'}</span>
+                        )}
+                      </button>
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <button onClick={() => handleSort('ratio_1u')} className="flex items-center gap-1 hover:text-gray-700 mx-auto">
+                        Prix 1u (ratio)
+                        {sortConfig.key === 'ratio_1u' && (
+                          <span>{sortConfig.direction === 'asc' ? '▲' : '▼'}</span>
+                        )}
+                      </button>
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <button onClick={() => handleSort('ratio_10u')} className="flex items-center gap-1 hover:text-gray-700 mx-auto">
+                        Prix 10u (ratio)
+                        {sortConfig.key === 'ratio_10u' && (
+                          <span>{sortConfig.direction === 'asc' ? '▲' : '▼'}</span>
+                        )}
+                      </button>
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <button onClick={() => handleSort('ratio_100u')} className="flex items-center gap-1 hover:text-gray-700 mx-auto">
+                        Prix 100u (ratio)
+                        {sortConfig.key === 'ratio_100u' && (
+                          <span>{sortConfig.direction === 'asc' ? '▲' : '▼'}</span>
+                        )}
+                      </button>
+                    </th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <button onClick={() => handleSort('ratio_1000u')} className="flex items-center gap-1 hover:text-gray-700 mx-auto">
+                        Prix 1000u (ratio)
+                        {sortConfig.key === 'ratio_1000u' && (
+                          <span>{sortConfig.direction === 'asc' ? '▲' : '▼'}</span>
+                        )}
+                      </button>
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {items.map((item) => {
+                  {sortedItems.map((item) => {
                     const ratio1u = calculateRatio(item.prix_1u, item.xp, 1)
                     const ratio10u = calculateRatio(item.prix_10u, item.xp, 10)
                     const ratio100u = calculateRatio(item.prix_100u, item.xp, 100)
                     const ratio1000u = calculateRatio(item.prix_1000u, item.xp, 1000)
 
+                    // Déterminer la couleur de fond
+                    const isSelected = selectedItemId === item.id
+                    const isLastAdded = lastAddedItemId === item.id
+                    let rowClassName = "hover:bg-gray-50 cursor-pointer transition-colors"
+                    if (isSelected) {
+                      rowClassName = "bg-blue-100 hover:bg-blue-200 cursor-pointer transition-colors"
+                    } else if (isLastAdded) {
+                      rowClassName = "bg-yellow-100 hover:bg-yellow-200 cursor-pointer transition-colors"
+                    }
+
                     return (
-                      <tr key={item.id} className="hover:bg-gray-50">
+                      <tr
+                        key={item.id}
+                        className={rowClassName}
+                        onClick={() => {
+                          setSelectedItemId(item.id)
+                          // Réinitialiser le surlignage jaune quand on sélectionne un autre item
+                          if (item.id !== lastAddedItemId) {
+                            setLastAddedItemId(null)
+                          }
+                        }}
+                      >
                         {/* Bouton supprimer */}
-                        <td className="px-4 py-4 text-center">
+                        <td className="px-4 py-4 text-center" onClick={(e) => e.stopPropagation()}>
                           <button
                             onClick={() => handleDeleteItem(item.id)}
                             className="p-1 rounded-full hover:bg-red-50 transition-colors group"
@@ -458,6 +593,7 @@ export default function Ressources() {
                                 onChange={(e) => setEditValue(e.target.value)}
                                 onBlur={() => handleCellBlur(item.id, 'xp')}
                                 onKeyDown={(e) => handleKeyPress(e, item.id, 'xp')}
+                                onClick={(e) => e.stopPropagation()}
                                 className="w-24 px-2 py-1 border border-blue-500 rounded text-center"
                                 autoFocus
                               />
@@ -465,7 +601,10 @@ export default function Ressources() {
                               <>
                                 <span className="text-sm text-gray-600">{item.xp || '0'}</span>
                                 <button
-                                  onClick={() => handleCellClick(item.id, 'xp', item.xp)}
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleCellClick(item.id, 'xp', item.xp)
+                                  }}
                                   className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity"
                                   title="Modifier"
                                 >
@@ -489,6 +628,7 @@ export default function Ressources() {
                                   onChange={(e) => setEditValue(e.target.value)}
                                   onBlur={() => handleCellBlur(item.id, 'prix_1u')}
                                   onKeyDown={(e) => handleKeyPress(e, item.id, 'prix_1u')}
+                                  onClick={(e) => e.stopPropagation()}
                                   className="w-24 px-2 py-1 border border-blue-500 rounded text-center"
                                   autoFocus
                                 />
@@ -503,7 +643,10 @@ export default function Ressources() {
                                     )}
                                   </div>
                                   <button
-                                    onClick={() => handleCellClick(item.id, 'prix_1u', item.prix_1u)}
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleCellClick(item.id, 'prix_1u', item.prix_1u)
+                                    }}
                                     className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity"
                                     title="Modifier"
                                   >
@@ -533,6 +676,7 @@ export default function Ressources() {
                                   onChange={(e) => setEditValue(e.target.value)}
                                   onBlur={() => handleCellBlur(item.id, 'prix_10u')}
                                   onKeyDown={(e) => handleKeyPress(e, item.id, 'prix_10u')}
+                                  onClick={(e) => e.stopPropagation()}
                                   className="w-24 px-2 py-1 border border-blue-500 rounded text-center"
                                   autoFocus
                                 />
@@ -547,7 +691,10 @@ export default function Ressources() {
                                     )}
                                   </div>
                                   <button
-                                    onClick={() => handleCellClick(item.id, 'prix_10u', item.prix_10u)}
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleCellClick(item.id, 'prix_10u', item.prix_10u)
+                                    }}
                                     className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity"
                                     title="Modifier"
                                   >
@@ -577,6 +724,7 @@ export default function Ressources() {
                                   onChange={(e) => setEditValue(e.target.value)}
                                   onBlur={() => handleCellBlur(item.id, 'prix_100u')}
                                   onKeyDown={(e) => handleKeyPress(e, item.id, 'prix_100u')}
+                                  onClick={(e) => e.stopPropagation()}
                                   className="w-24 px-2 py-1 border border-blue-500 rounded text-center"
                                   autoFocus
                                 />
@@ -591,7 +739,10 @@ export default function Ressources() {
                                     )}
                                   </div>
                                   <button
-                                    onClick={() => handleCellClick(item.id, 'prix_100u', item.prix_100u)}
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleCellClick(item.id, 'prix_100u', item.prix_100u)
+                                    }}
                                     className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity"
                                     title="Modifier"
                                   >
@@ -621,6 +772,7 @@ export default function Ressources() {
                                   onChange={(e) => setEditValue(e.target.value)}
                                   onBlur={() => handleCellBlur(item.id, 'prix_1000u')}
                                   onKeyDown={(e) => handleKeyPress(e, item.id, 'prix_1000u')}
+                                  onClick={(e) => e.stopPropagation()}
                                   className="w-24 px-2 py-1 border border-blue-500 rounded text-center"
                                   autoFocus
                                 />
@@ -635,7 +787,10 @@ export default function Ressources() {
                                     )}
                                   </div>
                                   <button
-                                    onClick={() => handleCellClick(item.id, 'prix_1000u', item.prix_1000u)}
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleCellClick(item.id, 'prix_1000u', item.prix_1000u)
+                                    }}
                                     className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity"
                                     title="Modifier"
                                   >
