@@ -328,6 +328,22 @@ export default function Ressources() {
     return (prixParUnite / xp).toFixed(2)
   }
 
+  // Calculer le prix estimé pour monter au niveau 100
+  const calculateEstimatedPrice = (prix, xp, quantity) => {
+    if (!selectedFamilier || !prix || !xp || xp === 0) return null
+
+    const xpPerUnit = xp
+    const xpPerPurchaseUnit = xpPerUnit * quantity
+    const quantityNeeded = Math.ceil(selectedFamilier.remainingXp / xpPerPurchaseUnit)
+    const totalCost = quantityNeeded * prix
+
+    return {
+      quantityNeeded,
+      totalCost,
+      formattedCost: totalCost.toLocaleString()
+    }
+  }
+
   // Ajouter une ressource au familier sélectionné
   const handleAddToFamilier = (item, prix, quantity) => {
     if (!selectedFamilier) {
@@ -624,6 +640,12 @@ export default function Ressources() {
                     const ratio100u = calculateRatio(item.prix_100u, item.xp, 100)
                     const ratio1000u = calculateRatio(item.prix_1000u, item.xp, 1000)
 
+                    // Calculer les coûts estimés pour monter au niveau 100
+                    const estimated1u = calculateEstimatedPrice(item.prix_1u, item.xp, 1)
+                    const estimated10u = calculateEstimatedPrice(item.prix_10u, item.xp, 10)
+                    const estimated100u = calculateEstimatedPrice(item.prix_100u, item.xp, 100)
+                    const estimated1000u = calculateEstimatedPrice(item.prix_1000u, item.xp, 1000)
+
                     // Déterminer la couleur de fond
                     const isSelected = selectedItemId === item.id
                     const isLastAdded = lastAddedItemId === item.id
@@ -730,12 +752,28 @@ export default function Ressources() {
                                 />
                               ) : (
                                 <>
-                                  <div className="flex items-center gap-1">
+                                  <div className="flex items-center gap-1 relative group/tooltip">
                                     <span className="text-sm text-gray-600">
                                       {item.prix_1u ? item.prix_1u.toLocaleString() : '-'}
                                     </span>
                                     {item.prix_1u && (
                                       <img src="/Kama.webp" alt="kamas" className="w-3 h-3 inline-block translate-y-0.5" />
+                                    )}
+                                    {/* Tooltip pour coût estimé niveau 100 */}
+                                    {estimated1u && (
+                                      <div className="invisible group-hover/tooltip:visible absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg whitespace-nowrap z-10">
+                                        <div className="text-center">
+                                          <div className="font-semibold">Prix pour niveau 100</div>
+                                          <div className="flex items-center gap-1 justify-center mt-1">
+                                            <span>{estimated1u.formattedCost}</span>
+                                            <img src="/Kama.webp" alt="kamas" className="w-3 h-3 inline-block" />
+                                          </div>
+                                          <div className="text-xs text-gray-300 mt-1">
+                                            ({estimated1u.quantityNeeded.toLocaleString()} achats de 1u)
+                                          </div>
+                                        </div>
+                                        <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+                                      </div>
                                     )}
                                   </div>
                                   <button
@@ -795,12 +833,28 @@ export default function Ressources() {
                                 />
                               ) : (
                                 <>
-                                  <div className="flex items-center gap-1">
+                                  <div className="flex items-center gap-1 relative group/tooltip10">
                                     <span className="text-sm text-gray-600">
                                       {item.prix_10u ? item.prix_10u.toLocaleString() : '-'}
                                     </span>
                                     {item.prix_10u && (
                                       <img src="/Kama.webp" alt="kamas" className="w-3 h-3 inline-block translate-y-0.5" />
+                                    )}
+                                    {/* Tooltip pour coût estimé niveau 100 */}
+                                    {estimated10u && (
+                                      <div className="invisible group-hover/tooltip10:visible absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg whitespace-nowrap z-10">
+                                        <div className="text-center">
+                                          <div className="font-semibold">Prix pour niveau 100</div>
+                                          <div className="flex items-center gap-1 justify-center mt-1">
+                                            <span>{estimated10u.formattedCost}</span>
+                                            <img src="/Kama.webp" alt="kamas" className="w-3 h-3 inline-block" />
+                                          </div>
+                                          <div className="text-xs text-gray-300 mt-1">
+                                            ({estimated10u.quantityNeeded.toLocaleString()} achats de 10u)
+                                          </div>
+                                        </div>
+                                        <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+                                      </div>
                                     )}
                                   </div>
                                   <button
@@ -860,12 +914,28 @@ export default function Ressources() {
                                 />
                               ) : (
                                 <>
-                                  <div className="flex items-center gap-1">
+                                  <div className="flex items-center gap-1 relative group/tooltip100">
                                     <span className="text-sm text-gray-600">
                                       {item.prix_100u ? item.prix_100u.toLocaleString() : '-'}
                                     </span>
                                     {item.prix_100u && (
                                       <img src="/Kama.webp" alt="kamas" className="w-3 h-3 inline-block translate-y-0.5" />
+                                    )}
+                                    {/* Tooltip pour coût estimé niveau 100 */}
+                                    {estimated100u && (
+                                      <div className="invisible group-hover/tooltip100:visible absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg whitespace-nowrap z-10">
+                                        <div className="text-center">
+                                          <div className="font-semibold">Prix pour niveau 100</div>
+                                          <div className="flex items-center gap-1 justify-center mt-1">
+                                            <span>{estimated100u.formattedCost}</span>
+                                            <img src="/Kama.webp" alt="kamas" className="w-3 h-3 inline-block" />
+                                          </div>
+                                          <div className="text-xs text-gray-300 mt-1">
+                                            ({estimated100u.quantityNeeded.toLocaleString()} achats de 100u)
+                                          </div>
+                                        </div>
+                                        <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+                                      </div>
                                     )}
                                   </div>
                                   <button
@@ -925,12 +995,28 @@ export default function Ressources() {
                                 />
                               ) : (
                                 <>
-                                  <div className="flex items-center gap-1">
+                                  <div className="flex items-center gap-1 relative group/tooltip1000">
                                     <span className="text-sm text-gray-600">
                                       {item.prix_1000u ? item.prix_1000u.toLocaleString() : '-'}
                                     </span>
                                     {item.prix_1000u && (
                                       <img src="/Kama.webp" alt="kamas" className="w-3 h-3 inline-block translate-y-0.5" />
+                                    )}
+                                    {/* Tooltip pour coût estimé niveau 100 */}
+                                    {estimated1000u && (
+                                      <div className="invisible group-hover/tooltip1000:visible absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg whitespace-nowrap z-10">
+                                        <div className="text-center">
+                                          <div className="font-semibold">Prix pour niveau 100</div>
+                                          <div className="flex items-center gap-1 justify-center mt-1">
+                                            <span>{estimated1000u.formattedCost}</span>
+                                            <img src="/Kama.webp" alt="kamas" className="w-3 h-3 inline-block" />
+                                          </div>
+                                          <div className="text-xs text-gray-300 mt-1">
+                                            ({estimated1000u.quantityNeeded.toLocaleString()} achats de 1000u)
+                                          </div>
+                                        </div>
+                                        <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+                                      </div>
                                     )}
                                   </div>
                                   <button
