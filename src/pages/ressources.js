@@ -3,6 +3,7 @@ import { useRouter } from 'next/router'
 import { createClient } from '../utils/supabase/client'
 import Layout from '../components/Layout'
 import { useItemSearch } from '../api/useItemSearch'
+import { getItemById } from '../api/dofusDudeApi'
 
 export default function Ressources() {
   const router = useRouter()
@@ -24,6 +25,26 @@ export default function Ressources() {
   const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' })
   const [lastAddedItemId, setLastAddedItemId] = useState(null)
   const [selectedItemId, setSelectedItemId] = useState(null)
+
+  // État pour le familier sélectionné (vient de Prix familier)
+  const [selectedFamilier, setSelectedFamilier] = useState(null)
+
+  // Charger le familier sélectionné depuis localStorage
+  useEffect(() => {
+    const loadSelectedFamilier = () => {
+      const saved = localStorage.getItem('selectedFamilier')
+      if (saved) {
+        setSelectedFamilier(JSON.parse(saved))
+      } else {
+        setSelectedFamilier(null)
+      }
+    }
+
+    loadSelectedFamilier()
+    // Écouter les changements de localStorage (quand on change de familier dans Prix familier)
+    window.addEventListener('storage', loadSelectedFamilier)
+    return () => window.removeEventListener('storage', loadSelectedFamilier)
+  }, [])
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -75,30 +96,23 @@ export default function Ressources() {
               }
             }
 
-            // Sinon charger depuis l'API
+            // Sinon charger depuis l'API en essayant tous les endpoints
             try {
-              const response = await fetch(
-                `https://api.dofusdu.de/dofus3/v1/fr/items/search?query=${item.id}&limit=1`
-              )
-              if (response.ok) {
-                const searchResults = await response.json()
-                if (searchResults && searchResults.length > 0) {
-                  const apiItem = searchResults.find(r => r.ankama_id === item.id)
-                  if (apiItem) {
-                    // Sauvegarder dans localStorage pour la prochaine fois
-                    savedMetadata[item.id] = {
-                      name: apiItem.name,
-                      image_urls: apiItem.image_urls,
-                      type: apiItem.type
-                    }
-                    localStorage.setItem('itemsMetadata', JSON.stringify(savedMetadata))
-                    return {
-                      ...item,
-                      name: apiItem.name,
-                      image_urls: apiItem.image_urls,
-                      type: apiItem.type
-                    }
-                  }
+              const apiItem = await getItemById(item.id)
+
+              if (apiItem) {
+                // Sauvegarder dans localStorage pour la prochaine fois
+                savedMetadata[item.id] = {
+                  name: apiItem.name,
+                  image_urls: apiItem.image_urls,
+                  type: apiItem.type
+                }
+                localStorage.setItem('itemsMetadata', JSON.stringify(savedMetadata))
+                return {
+                  ...item,
+                  name: apiItem.name,
+                  image_urls: apiItem.image_urls,
+                  type: apiItem.type
                 }
               }
             } catch (err) {
@@ -314,6 +328,62 @@ export default function Ressources() {
     return (prixParUnite / xp).toFixed(2)
   }
 
+  // Ajouter une ressource au familier sélectionné
+  const handleAddToFamilier = (item, prix, quantity) => {
+    if (!selectedFamilier) {
+      alert('Aucun familier sélectionné. Allez dans l\'onglet "Prix familier" et sélectionnez un familier.')
+      return
+    }
+
+    if (!prix || !item.xp || item.xp === 0) {
+      alert('Veuillez remplir le prix et le XP de cet item avant de l\'ajouter.')
+      return
+    }
+
+    // Calculer la quantité optimale basée sur le XP restant
+    const xpPerUnit = item.xp
+    const quantityNeeded = Math.ceil(selectedFamilier.remainingXp / xpPerUnit)
+    const actualQuantity = Math.min(quantityNeeded, quantity) // Max selon la quantité sélectionnée
+
+    const xpProvided = actualQuantity * xpPerUnit
+    const unitPrice = prix / quantity
+    const cost = Math.round(actualQuantity * unitPrice)
+
+    const resource = {
+      item: {
+        id: item.id,
+        name: item.name,
+        image_urls: item.image_urls
+      },
+      quantity: actualQuantity,
+      xpProvided: xpProvided,
+      cost: cost
+    }
+
+    // Mettre à jour le localStorage avec la nouvelle ressource
+    const updatedFamilier = {
+      ...selectedFamilier,
+      resources: [...(selectedFamilier.resources || []), resource],
+      totalCost: (selectedFamilier.totalCost || 0) + cost,
+      remainingXp: Math.max(0, selectedFamilier.remainingXp - xpProvided)
+    }
+
+    localStorage.setItem('selectedFamilier', JSON.stringify(updatedFamilier))
+    setSelectedFamilier(updatedFamilier)
+
+    // Mettre à jour savedMounts dans localStorage aussi
+    const allMounts = JSON.parse(localStorage.getItem('savedMounts') || '[]')
+    const updatedMounts = allMounts.map(m =>
+      m.id === updatedFamilier.id ? updatedFamilier : m
+    )
+    localStorage.setItem('savedMounts', JSON.stringify(updatedMounts))
+
+    // Déclencher un événement personnalisé pour mettre à jour la page Prix familier
+    window.dispatchEvent(new CustomEvent('familierUpdated', { detail: updatedFamilier }))
+
+    alert(`${actualQuantity.toLocaleString()} ${item.name} ajouté(s) au familier ${selectedFamilier.mount.name}!`)
+  }
+
   // Fonction de tri
   const handleSort = (key) => {
     let direction = 'asc'
@@ -396,6 +466,32 @@ export default function Ressources() {
             </button>
           )}
         </div>
+
+        {/* Indicateur du familier sélectionné */}
+        {selectedFamilier && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                {selectedFamilier.mount.image_urls?.sd && (
+                  <img
+                    src={selectedFamilier.mount.image_urls.sd}
+                    alt={selectedFamilier.mount.name}
+                    className="w-12 h-12 rounded"
+                  />
+                )}
+                <div>
+                  <p className="text-sm font-semibold text-blue-900">
+                    Familier sélectionné: {selectedFamilier.mount.name}
+                  </p>
+                  <p className="text-xs text-blue-700">
+                    XP restant: <span className="font-semibold">{selectedFamilier.remainingXp.toLocaleString()}</span>
+                  </p>
+                </div>
+              </div>
+              <p className="text-xs text-blue-600 italic">Cliquez sur "+ Ajouter" à côté des ratios pour ajouter des ressources</p>
+            </div>
+          </div>
+        )}
 
         {/* Encart de recherche */}
         <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
@@ -658,9 +754,26 @@ export default function Ressources() {
                               )}
                             </div>
                             {ratio1u && (
-                              <span className="inline-block px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded-full">
-                                {ratio1u}
-                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className="inline-block px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded-full">
+                                  {ratio1u}
+                                </span>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    if (selectedFamilier) handleAddToFamilier(item, item.prix_1u, 1)
+                                  }}
+                                  disabled={!selectedFamilier}
+                                  className={`w-5 h-5 flex items-center justify-center rounded-full text-white text-xs font-bold leading-none transition-colors ${
+                                    selectedFamilier
+                                      ? 'bg-green-500 hover:bg-green-600 cursor-pointer'
+                                      : 'bg-gray-300 cursor-not-allowed'
+                                  }`}
+                                  title={selectedFamilier ? `Ajouter à ${selectedFamilier.mount.name}` : 'Sélectionnez un familier d\'abord'}
+                                >
+                                  +
+                                </button>
+                              </div>
                             )}
                           </div>
                         </td>
@@ -706,9 +819,26 @@ export default function Ressources() {
                               )}
                             </div>
                             {ratio10u && (
-                              <span className="inline-block px-2 py-0.5 bg-green-100 text-green-800 text-xs rounded-full">
-                                {ratio10u}
-                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className="inline-block px-2 py-0.5 bg-green-100 text-green-800 text-xs rounded-full">
+                                  {ratio10u}
+                                </span>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    if (selectedFamilier) handleAddToFamilier(item, item.prix_10u, 10)
+                                  }}
+                                  disabled={!selectedFamilier}
+                                  className={`w-5 h-5 flex items-center justify-center rounded-full text-white text-xs font-bold leading-none transition-colors ${
+                                    selectedFamilier
+                                      ? 'bg-green-500 hover:bg-green-600 cursor-pointer'
+                                      : 'bg-gray-300 cursor-not-allowed'
+                                  }`}
+                                  title={selectedFamilier ? `Ajouter à ${selectedFamilier.mount.name}` : 'Sélectionnez un familier d\'abord'}
+                                >
+                                  +
+                                </button>
+                              </div>
                             )}
                           </div>
                         </td>
@@ -754,9 +884,26 @@ export default function Ressources() {
                               )}
                             </div>
                             {ratio100u && (
-                              <span className="inline-block px-2 py-0.5 bg-yellow-100 text-yellow-800 text-xs rounded-full">
-                                {ratio100u}
-                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className="inline-block px-2 py-0.5 bg-yellow-100 text-yellow-800 text-xs rounded-full">
+                                  {ratio100u}
+                                </span>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    if (selectedFamilier) handleAddToFamilier(item, item.prix_100u, 100)
+                                  }}
+                                  disabled={!selectedFamilier}
+                                  className={`w-5 h-5 flex items-center justify-center rounded-full text-white text-xs font-bold leading-none transition-colors ${
+                                    selectedFamilier
+                                      ? 'bg-green-500 hover:bg-green-600 cursor-pointer'
+                                      : 'bg-gray-300 cursor-not-allowed'
+                                  }`}
+                                  title={selectedFamilier ? `Ajouter à ${selectedFamilier.mount.name}` : 'Sélectionnez un familier d\'abord'}
+                                >
+                                  +
+                                </button>
+                              </div>
                             )}
                           </div>
                         </td>
@@ -802,9 +949,26 @@ export default function Ressources() {
                               )}
                             </div>
                             {ratio1000u && (
-                              <span className="inline-block px-2 py-0.5 bg-purple-100 text-purple-800 text-xs rounded-full">
-                                {ratio1000u}
-                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className="inline-block px-2 py-0.5 bg-purple-100 text-purple-800 text-xs rounded-full">
+                                  {ratio1000u}
+                                </span>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    if (selectedFamilier) handleAddToFamilier(item, item.prix_1000u, 1000)
+                                  }}
+                                  disabled={!selectedFamilier}
+                                  className={`w-5 h-5 flex items-center justify-center rounded-full text-white text-xs font-bold leading-none transition-colors ${
+                                    selectedFamilier
+                                      ? 'bg-green-500 hover:bg-green-600 cursor-pointer'
+                                      : 'bg-gray-300 cursor-not-allowed'
+                                  }`}
+                                  title={selectedFamilier ? `Ajouter à ${selectedFamilier.mount.name}` : 'Sélectionnez un familier d\'abord'}
+                                >
+                                  +
+                                </button>
+                              </div>
                             )}
                           </div>
                         </td>

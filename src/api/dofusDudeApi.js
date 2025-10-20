@@ -12,8 +12,14 @@ const TYPE_ENDPOINT_MAP = {
   'items-consumables': 'consumables',
   'items-equipment': 'equipment',
   'items-cosmetics': 'cosmetics',
-  'items-quest': 'quest'
+  'items-quest': 'quest',
+  'items-mounts': 'mounts'
 }
+
+/**
+ * Liste de tous les endpoints possibles pour essayer en cas d'échec
+ */
+const ALL_ENDPOINTS = ['resources', 'consumables', 'equipment', 'cosmetics', 'quest', 'mounts']
 
 /**
  * Récupère le endpoint API pour un type d'item
@@ -51,25 +57,46 @@ export async function searchItems(query, limit = 10) {
 /**
  * Récupère les détails d'un item par son ID
  * @param {number} ankamaId - ID Ankama de l'item
- * @param {Object} type - Type de l'item
+ * @param {Object} type - Type de l'item (optionnel)
  * @returns {Promise<Object>} - Détails de l'item
  */
-export async function getItemById(ankamaId, type) {
-  try {
-    const endpoint = getItemTypeEndpoint(type)
-    const response = await fetch(
-      `${API_BASE_URL}/items/${endpoint}/${ankamaId}`
-    )
+export async function getItemById(ankamaId, type = null) {
+  // Si on a un type, essayer d'abord avec l'endpoint correspondant
+  if (type) {
+    try {
+      const endpoint = getItemTypeEndpoint(type)
+      const response = await fetch(
+        `${API_BASE_URL}/items/${endpoint}/${ankamaId}`
+      )
 
-    if (!response.ok) {
-      throw new Error(`Erreur API: ${response.status}`)
+      if (response.ok) {
+        return await response.json()
+      }
+    } catch (error) {
+      console.warn(`Échec avec l'endpoint suggéré pour l'item ${ankamaId}:`, error)
     }
-
-    return await response.json()
-  } catch (error) {
-    console.error('Erreur lors de la récupération de l\'item:', error)
-    throw error
   }
+
+  // Si pas de type ou échec, essayer tous les endpoints
+  for (const endpoint of ALL_ENDPOINTS) {
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/items/${endpoint}/${ankamaId}`
+      )
+
+      if (response.ok) {
+        const data = await response.json()
+        console.log(`Item ${ankamaId} trouvé dans l'endpoint: ${endpoint}`)
+        return data
+      }
+    } catch (error) {
+      // Continuer avec le prochain endpoint
+      continue
+    }
+  }
+
+  // Si aucun endpoint ne fonctionne, lancer une erreur
+  throw new Error(`Item ${ankamaId} introuvable dans tous les endpoints`)
 }
 
 /**
