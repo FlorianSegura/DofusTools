@@ -33,25 +33,21 @@ export default function PrixFamilier() {
   useEffect(() => {
     // Ne rien faire tant que savedMounts n'est pas chargé
     if (savedMounts.length === 0) {
-      console.log('⏸️ savedMounts vide, skip sauvegarde/suppression')
       return
     }
 
     // Ne rien faire tant que la restauration initiale n'est pas terminée
     if (!hasRestoredSelection.current) {
-      console.log('⏸️ Restauration pas encore terminée, skip sauvegarde/suppression')
       return
     }
 
     if (selectedMountId) {
       const selectedMount = savedMounts.find(m => m.id === selectedMountId)
       if (selectedMount) {
-        console.log('💾 Sauvegarde de la sélection dans localStorage:', selectedMount.mount.name, 'ID:', selectedMountId)
         localStorage.setItem('selectedFamilier', JSON.stringify(selectedMount))
       }
     } else {
       // Supprimer seulement si la restauration est terminée ET l'utilisateur a désélectionné
-      console.log('🗑️ Suppression de la sélection du localStorage (désélection active par l\'utilisateur)')
       localStorage.removeItem('selectedFamilier')
     }
   }, [selectedMountId, savedMounts])
@@ -98,10 +94,7 @@ export default function PrixFamilier() {
   // Cet effet vérifie à chaque fois que savedMounts OU selectedMountId change
   // si la sélection correspond à ce qui est dans localStorage
   useEffect(() => {
-    console.log('🔄 Effet de synchronisation déclenché - savedMounts:', savedMounts.length, 'selectedMountId:', selectedMountId)
-
     if (savedMounts.length === 0) {
-      console.log('⏭️ Pas de savedMounts, skip synchronisation')
       return
     }
 
@@ -110,27 +103,13 @@ export default function PrixFamilier() {
       try {
         const familier = JSON.parse(selectedFam)
         const exists = savedMounts.find(m => m.id === familier.id)
-        console.log('🔍 Vérification:', {
-          familierDansLocalStorage: familier.mount.name,
-          idDansLocalStorage: familier.id,
-          selectedMountIdActuel: selectedMountId,
-          existeDansSavedMounts: !!exists
-        })
 
         // Mettre à jour seulement si différent pour éviter les boucles
         if (exists && selectedMountId !== familier.id) {
-          console.log('✅ SYNCHRONISATION: Application de la sélection', familier.mount.name, 'ID:', familier.id)
           setSelectedMountId(familier.id)
-        } else if (exists && selectedMountId === familier.id) {
-          console.log('✔️ Sélection déjà synchronisée:', familier.mount.name)
         }
       } catch (e) {
-        console.error('❌ Erreur parsing selectedFamilier:', e)
-      }
-    } else {
-      console.log('⚠️ localStorage.selectedFamilier est vide')
-      if (selectedMountId !== null) {
-        console.log('ℹ️ Mais selectedMountId actuel:', selectedMountId)
+        console.error('Erreur parsing selectedFamilier:', e)
       }
     }
   }, [savedMounts, selectedMountId])
@@ -142,37 +121,7 @@ export default function PrixFamilier() {
     }
   }, [savedMounts])
 
-  // Fonction d'initialisation appelée au chargement de l'onglet "Prix Familier"
-  const initializePrixFamilier = () => {
-    console.log('🚀 === INITIALISATION PAGE PRIX FAMILIER ===')
-    console.log('📅 Timestamp:', new Date().toISOString())
-
-    // Afficher l'état actuel du localStorage
-    const savedMountsStorage = localStorage.getItem('savedMounts')
-    const selectedFamilierStorage = localStorage.getItem('selectedFamilier')
-
-    console.log('💾 localStorage - savedMounts:', savedMountsStorage ? JSON.parse(savedMountsStorage).length + ' familier(s)' : 'vide')
-    console.log('💾 localStorage - selectedFamilier:', selectedFamilierStorage ? JSON.parse(selectedFamilierStorage).mount.name : 'aucun')
-
-    if (selectedFamilierStorage) {
-      const familier = JSON.parse(selectedFamilierStorage)
-      console.log('✅ Familier sélectionné dans localStorage:', {
-        nom: familier.mount.name,
-        id: familier.id,
-        xpRestant: familier.remainingXp,
-        nbRessources: familier.resources?.length || 0
-      })
-    } else {
-      console.log('⚠️ Aucun familier sélectionné dans localStorage')
-    }
-
-    console.log('🏁 === FIN INITIALISATION ===')
-  }
-
   useEffect(() => {
-    // Appeler la fonction d'initialisation
-    initializePrixFamilier()
-
     const checkAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
