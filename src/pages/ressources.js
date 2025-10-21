@@ -344,6 +344,32 @@ export default function Ressources() {
     }
   }
 
+  // Fonction pour obtenir la couleur du badge en fonction du ratio (vert = meilleur, rouge = pire)
+  const getRatioColor = (ratio, allRatios) => {
+    if (!ratio || !allRatios || allRatios.length === 0) return 'bg-gray-100 text-gray-800'
+
+    // Filtrer les ratios valides (non null)
+    const validRatios = allRatios.filter(r => r !== null).map(r => parseFloat(r))
+    if (validRatios.length === 0) return 'bg-gray-100 text-gray-800'
+
+    const min = Math.min(...validRatios)
+    const max = Math.max(...validRatios)
+    const currentRatio = parseFloat(ratio)
+
+    // Si tous les ratios sont identiques
+    if (min === max) return 'bg-yellow-100 text-yellow-800'
+
+    // Normaliser le ratio entre 0 (meilleur) et 1 (pire)
+    const normalized = (currentRatio - min) / (max - min)
+
+    // Attribuer une couleur selon la position
+    if (normalized <= 0.2) return 'bg-green-100 text-green-800'      // Top 20% - Vert foncé
+    if (normalized <= 0.4) return 'bg-green-50 text-green-700'       // Top 40% - Vert clair
+    if (normalized <= 0.6) return 'bg-yellow-100 text-yellow-800'    // Moyen 60% - Jaune
+    if (normalized <= 0.8) return 'bg-orange-100 text-orange-800'    // Top 80% - Orange
+    return 'bg-red-100 text-red-800'                                  // Pire 20% - Rouge
+  }
+
   // Ajouter une ressource au familier sélectionné
   const handleAddToFamilier = (item, prix, quantity) => {
     if (!selectedFamilier) {
@@ -634,17 +660,27 @@ export default function Ressources() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {sortedItems.map((item) => {
-                    const ratio1u = calculateRatio(item.prix_1u, item.xp, 1)
-                    const ratio10u = calculateRatio(item.prix_10u, item.xp, 10)
-                    const ratio100u = calculateRatio(item.prix_100u, item.xp, 100)
-                    const ratio1000u = calculateRatio(item.prix_1000u, item.xp, 1000)
+                  {/* Calculer tous les ratios pour déterminer les couleurs */}
+                  {(() => {
+                    const allRatios1u = sortedItems.map(item => calculateRatio(item.prix_1u, item.xp, 1))
+                    const allRatios10u = sortedItems.map(item => calculateRatio(item.prix_10u, item.xp, 10))
+                    const allRatios100u = sortedItems.map(item => calculateRatio(item.prix_100u, item.xp, 100))
+                    const allRatios1000u = sortedItems.map(item => calculateRatio(item.prix_1000u, item.xp, 1000))
+
+                    return sortedItems.map((item, index) => {
+                      const ratio1u = calculateRatio(item.prix_1u, item.xp, 1)
+                      const ratio10u = calculateRatio(item.prix_10u, item.xp, 10)
+                      const ratio100u = calculateRatio(item.prix_100u, item.xp, 100)
+                      const ratio1000u = calculateRatio(item.prix_1000u, item.xp, 1000)
 
                     // Calculer les coûts estimés pour monter au niveau 100
                     const estimated1u = calculateEstimatedPrice(item.prix_1u, item.xp, 1)
                     const estimated10u = calculateEstimatedPrice(item.prix_10u, item.xp, 10)
                     const estimated100u = calculateEstimatedPrice(item.prix_100u, item.xp, 100)
                     const estimated1000u = calculateEstimatedPrice(item.prix_1000u, item.xp, 1000)
+
+                    // Première ligne : tooltip vers le bas, autres : vers le haut
+                    const isFirstRow = index === 0
 
                     // Déterminer la couleur de fond
                     const isSelected = selectedItemId === item.id
@@ -761,7 +797,9 @@ export default function Ressources() {
                                     )}
                                     {/* Tooltip pour coût estimé niveau 100 */}
                                     {estimated1u && (
-                                      <div className="invisible group-hover/tooltip:visible absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg whitespace-nowrap z-10">
+                                      <div className={`invisible group-hover/tooltip:visible absolute left-1/2 -translate-x-1/2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg whitespace-nowrap z-10 ${
+                                        isFirstRow ? 'top-full mt-2' : 'bottom-full mb-2'
+                                      }`}>
                                         <div className="text-center">
                                           <div className="font-semibold">Prix pour niveau 100</div>
                                           <div className="flex items-center gap-1 justify-center mt-1">
@@ -772,7 +810,10 @@ export default function Ressources() {
                                             ({estimated1u.quantityNeeded.toLocaleString()} achats de 1u)
                                           </div>
                                         </div>
-                                        <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+                                        {/* Flèche: vers le haut si première ligne, vers le bas sinon */}
+                                        <div className={`absolute left-1/2 -translate-x-1/2 border-4 border-transparent ${
+                                          isFirstRow ? 'bottom-full border-b-gray-900' : 'top-full border-t-gray-900'
+                                        }`}></div>
                                       </div>
                                     )}
                                   </div>
@@ -793,7 +834,7 @@ export default function Ressources() {
                             </div>
                             {ratio1u && (
                               <div className="flex items-center gap-2">
-                                <span className="inline-block px-2 py-0.5 bg-blue-100 text-blue-800 text-xs rounded-full">
+                                <span className={`inline-block px-2 py-0.5 text-xs rounded-full ${getRatioColor(ratio1u, allRatios1u)}`}>
                                   {ratio1u}
                                 </span>
                                 <button
@@ -842,7 +883,9 @@ export default function Ressources() {
                                     )}
                                     {/* Tooltip pour coût estimé niveau 100 */}
                                     {estimated10u && (
-                                      <div className="invisible group-hover/tooltip10:visible absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg whitespace-nowrap z-10">
+                                      <div className={`invisible group-hover/tooltip10:visible absolute left-1/2 -translate-x-1/2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg whitespace-nowrap z-10 ${
+                                        isFirstRow ? 'top-full mt-2' : 'bottom-full mb-2'
+                                      }`}>
                                         <div className="text-center">
                                           <div className="font-semibold">Prix pour niveau 100</div>
                                           <div className="flex items-center gap-1 justify-center mt-1">
@@ -853,7 +896,9 @@ export default function Ressources() {
                                             ({estimated10u.quantityNeeded.toLocaleString()} achats de 10u)
                                           </div>
                                         </div>
-                                        <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+                                        <div className={`absolute left-1/2 -translate-x-1/2 border-4 border-transparent ${
+                                          isFirstRow ? 'bottom-full border-b-gray-900' : 'top-full border-t-gray-900'
+                                        }`}></div>
                                       </div>
                                     )}
                                   </div>
@@ -874,7 +919,7 @@ export default function Ressources() {
                             </div>
                             {ratio10u && (
                               <div className="flex items-center gap-2">
-                                <span className="inline-block px-2 py-0.5 bg-green-100 text-green-800 text-xs rounded-full">
+                                <span className={`inline-block px-2 py-0.5 text-xs rounded-full ${getRatioColor(ratio10u, allRatios10u)}`}>
                                   {ratio10u}
                                 </span>
                                 <button
@@ -923,7 +968,9 @@ export default function Ressources() {
                                     )}
                                     {/* Tooltip pour coût estimé niveau 100 */}
                                     {estimated100u && (
-                                      <div className="invisible group-hover/tooltip100:visible absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg whitespace-nowrap z-10">
+                                      <div className={`invisible group-hover/tooltip100:visible absolute left-1/2 -translate-x-1/2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg whitespace-nowrap z-10 ${
+                                        isFirstRow ? 'top-full mt-2' : 'bottom-full mb-2'
+                                      }`}>
                                         <div className="text-center">
                                           <div className="font-semibold">Prix pour niveau 100</div>
                                           <div className="flex items-center gap-1 justify-center mt-1">
@@ -934,7 +981,9 @@ export default function Ressources() {
                                             ({estimated100u.quantityNeeded.toLocaleString()} achats de 100u)
                                           </div>
                                         </div>
-                                        <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+                                        <div className={`absolute left-1/2 -translate-x-1/2 border-4 border-transparent ${
+                                          isFirstRow ? 'bottom-full border-b-gray-900' : 'top-full border-t-gray-900'
+                                        }`}></div>
                                       </div>
                                     )}
                                   </div>
@@ -955,7 +1004,7 @@ export default function Ressources() {
                             </div>
                             {ratio100u && (
                               <div className="flex items-center gap-2">
-                                <span className="inline-block px-2 py-0.5 bg-yellow-100 text-yellow-800 text-xs rounded-full">
+                                <span className={`inline-block px-2 py-0.5 text-xs rounded-full ${getRatioColor(ratio100u, allRatios100u)}`}>
                                   {ratio100u}
                                 </span>
                                 <button
@@ -1004,7 +1053,9 @@ export default function Ressources() {
                                     )}
                                     {/* Tooltip pour coût estimé niveau 100 */}
                                     {estimated1000u && (
-                                      <div className="invisible group-hover/tooltip1000:visible absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg whitespace-nowrap z-10">
+                                      <div className={`invisible group-hover/tooltip1000:visible absolute left-1/2 -translate-x-1/2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg shadow-lg whitespace-nowrap z-10 ${
+                                        isFirstRow ? 'top-full mt-2' : 'bottom-full mb-2'
+                                      }`}>
                                         <div className="text-center">
                                           <div className="font-semibold">Prix pour niveau 100</div>
                                           <div className="flex items-center gap-1 justify-center mt-1">
@@ -1015,7 +1066,9 @@ export default function Ressources() {
                                             ({estimated1000u.quantityNeeded.toLocaleString()} achats de 1000u)
                                           </div>
                                         </div>
-                                        <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+                                        <div className={`absolute left-1/2 -translate-x-1/2 border-4 border-transparent ${
+                                          isFirstRow ? 'bottom-full border-b-gray-900' : 'top-full border-t-gray-900'
+                                        }`}></div>
                                       </div>
                                     )}
                                   </div>
@@ -1036,7 +1089,7 @@ export default function Ressources() {
                             </div>
                             {ratio1000u && (
                               <div className="flex items-center gap-2">
-                                <span className="inline-block px-2 py-0.5 bg-purple-100 text-purple-800 text-xs rounded-full">
+                                <span className={`inline-block px-2 py-0.5 text-xs rounded-full ${getRatioColor(ratio1000u, allRatios1000u)}`}>
                                   {ratio1000u}
                                 </span>
                                 <button
@@ -1060,7 +1113,8 @@ export default function Ressources() {
                         </td>
                       </tr>
                     )
-                  })}
+                  })
+                })()}
                 </tbody>
               </table>
             </div>
